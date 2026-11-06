@@ -257,7 +257,31 @@ define_mgk_ko(
 
 ---
 
-## 8. 许可
+## 8. system_dlkm 构建
+
+```bash
+# 依赖已构建好的 staging
+tools/bazel build //common-modules/mediatek:mgk_64_k61_modules_install
+bash common-modules/mediatek/tools/make_system_dlkm.sh
+# → out/kernel_modules/system_dlkm.img
+```
+
+要点：
+
+- 模块集合来自原厂 `system_dlkm` 的 `modules.load`（60 项），从 staging 的
+  `kernel/` 目录按名匹配后扁平 stage；
+- 本 profile 下 `CONFIG_BT=y`、`CONFIG_RFKILL=y`，所以 `bluetooth.ko` / `rfkill.ko`
+  不存在，最终是 58 个模块，属正常；
+- SELinux 类型为 `u:object_r:system_file:s0`（vendor_dlkm 是 `vendor_file`）；
+- 与 vendor_dlkm 同样要求扁平布局与绝对路径 `modules.dep`。
+
+**三个镜像必须成组刷入**：`boot`、`system_dlkm`、`vendor_dlkm` 三者都来自
+`mgk_64_k61` 这一套构建，`module_layout` 等符号 CRC 才一致。设备上曾经只替换
+vendor_dlkm 而内核是 `//common:kernel_aarch64`（GKI 配置），结果所有厂商模块
+insmod 报 `Exec format error`，内核打印 `disagrees about version of symbol module_layout`
+——两者的 `module_layout` CRC 分别是 `0xea759d7f` 与 `0x9efa483d`。
+
+## 9. 许可
 
 各子目录保留上游原始许可证声明（`SPDX-License-Identifier`）。整体以 GPL-2.0
 为主，部分 MediaTek 组件为 Proprietary。使用与分发前请逐目录确认。
