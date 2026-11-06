@@ -1,5 +1,5 @@
 #!/bin/bash
-# 从 out/kernel_modules 的扁平产物重建 vendor_dlkm 镜像（仅含加载清单内的模块）。
+# 从 out/kernel_modules 的扁平产物重建 vendor_dlkm 镜像。
 #
 # 用法:
 #   bash common-modules/mediatek/tools/make_vendor_dlkm_trim.sh [输出镜像路径]
@@ -9,36 +9,44 @@
 #
 # 产物: out/kernel_modules/vendor_dlkm_trim.img（默认）
 #
-# 重要：必须带 --mount-point / --fs-config-file / --file-contexts，
-# 否则镜像内文件没有 SELinux 标签（u:object_r:unlabeled:s0），
-# init.insmod.sh 会被 avc denied 拒绝进入 /vendor_dlkm，模块全部加载失败。
+# 三个必须遵守的约束（均为实机踩坑得出）：
+#  1. 目录布局必须**扁平**：模块直接放在 lib/modules/ 下，modules.load 也在该层。
+#     放入 lib/modules/<release>/ 会导致 init 找不到 modules.load，模块一个都不加载。
+#  2. modules.dep 使用绝对路径 /vendor_dlkm/lib/modules/xxx.ko。
+#  3. 必须带 --mount-point / --fs-config-file / --file-contexts，否则文件无 SELinux
+#     标签，init.insmod.sh 会被 avc denied 拒绝。
 set -euo pipefail
 
 PKG_DIR=$(cd "$(dirname "$0")/.." && pwd)
 ROOT=$(cd "${PKG_DIR}/../.." && pwd)
 DIST="${ROOT}/out/kernel_modules"
 CFG_DIR="${PKG_DIR}/tools/vendor_dlkm"
-# 镜像内容：原厂镜像里的全部模块中本树能构建的部分（204 个）
+# 镜像内容：原厂镜像里的全部模块中本树能构建的部分
 LIST="${CFG_DIR}/image_contents.load"
-# 开机自动加载清单：沿用原厂 modules.load（187 项）
+# 开机自动加载清单：沿用原厂 modules.load
 LOADLIST="${CFG_DIR}/modules.load.stock"
 STAGE_BIN="${ROOT}/bazel-bin/common-modules/mediatek/mgk_64_k61_modules_install/staging"
 TOOLS="${ROOT}/prebuilts/kernel-build-tools/linux-x86/bin"
 OUT="${1:-${DIST}/vendor_dlkm_trim.img}"
+MODDIR=/vendor_dlkm/lib/modules
 
-for f in "${DIST}" "${LIST}" "${LOADLIST}" "${STAGE_BIN}" "${TOOLS}/mkfs.erofs" "${TOOLS}/depmod" \
-         "${CFG_DIR}/build.prop"; do
+for f in "${DIST}" "${LIST}" "${LOADLIST}" "${STAGE_BIN}" \
+         "${TOOLS}/mkfs.erofs" "${TOOLS}/depmod" "${CFG_DIR}/build.prop"; do
   [ -e "$f" ] || { echo "缺少: $f" >&2; exit 1; }
 done
 
 REL=$(ls "${STAGE_BIN}"/lib/modules | head -1)
-echo "release      : ${REL}"
+echo "build release: ${REL}"
 echo "modules list : $(wc -l < "${LIST}") 项"
 
 WORK=$(mktemp -d)
-trap 'rm -rf "${WORK}"' EXIT
-STAGE="${WORK}/lib/modules/${REL}"
-mkdir -p "${STAGE}" "${WORK}/etc"
+FC=$(mktemp)
+FSCFG=$(mktemp)
+DEPMOD_ROOT=$(mktemp -d)
+trap 'rm -rf "${WORK}" "${DEPMOD_ROOT}" "${FC}" "${FSCFG}"' EXIT
+
+FLAT="${WORK}/lib/modules"
+mkdir -p "${FLAT}" "${WORK}/etc"
 
 missing=0
 while IFS= read -r p; do
@@ -50,52 +58,60 @@ while IFS= read -r p; do
     missing=$((missing + 1))
     continue
   fi
-  mkdir -p "${STAGE}/$(dirname "${p}")"
-  cp "${src}" "${STAGE}/${p}"
+  cp "${src}" "${FLAT}/${base}"
 done < "${LIST}"
 
 # 与原厂镜像一致：携带 etc/build.prop
 cp "${CFG_DIR}/build.prop" "${WORK}/etc/build.prop"
 
-for f in modules.builtin modules.builtin.modinfo; do
-  [ -f "${STAGE_BIN}/lib/modules/${REL}/${f}" ] && cp "${STAGE_BIN}/lib/modules/${REL}/${f}" "${STAGE}/"
-done
-
-# modules.order 与实际装载顺序一致
-grep -v '^#' "${LIST}" | sed '/^$/d' > "${STAGE}/modules.order"
-
-# 生成 modules.dep / .alias / .softdep
-"${TOOLS}/depmod" -b "${WORK}" "${REL}"
-
-# modules.load：沿用原厂加载顺序，仅保留镜像内实际存在的模块
-: > "${STAGE}/modules.load"
-while IFS= read -r m; do
-  [ -n "$m" ] || continue
-  if [ -n "$(find "${STAGE}" -name "${m}" -print -quit)" ]; then
-    echo "${m}" >> "${STAGE}/modules.load"
-  fi
-done < "${LOADLIST}"
-
-count=$(find "${STAGE}" -name '*.ko' | wc -l)
+count=$(find "${FLAT}" -name '*.ko' | wc -l)
 echo "staged modules: ${count}（缺失 ${missing}）"
 
-# 按实际内容生成 SELinux 上下文：模块一律 vendor_file，etc 下为 vendor_configs_file
-# 注意：上下文文件必须放在镜像目录之外，否则会被当成镜像内容且 fs_config 里没有对应条目。
-FC=$(mktemp)
-# fs_config 同样按实际内容生成：目录 0755、文件 0644，root:root。
-# 原厂 fs_config 是逐路径列举的，内核 sublevel 变化后目录名不同，直接复用会报错。
-FSCFG=$(mktemp)
-{
-  echo "/ 0 0 0755"
-  echo "vendor_dlkm 0 0 0755"
-  find "${WORK}" -mindepth 1 | sed "s|^${WORK}/||" | LC_ALL=C sort | while IFS= read -r p; do
-    if [ -d "${WORK}/${p}" ]; then
-      echo "vendor_dlkm/${p} 0 0 0755"
-    else
-      echo "vendor_dlkm/${p} 0 0 0644"
-    fi
-  done
-} > "${FSCFG}"
+# depmod 需要版本目录，在临时根里生成后再把路径改写成扁平的绝对路径
+mkdir -p "${DEPMOD_ROOT}/lib/modules/${REL}"
+cp "${FLAT}"/*.ko "${DEPMOD_ROOT}/lib/modules/${REL}/"
+for f in modules.order modules.builtin modules.builtin.modinfo; do
+  [ -f "${STAGE_BIN}/lib/modules/${REL}/${f}" ] && \
+    cp "${STAGE_BIN}/lib/modules/${REL}/${f}" "${DEPMOD_ROOT}/lib/modules/${REL}/"
+done
+"${TOOLS}/depmod" -b "${DEPMOD_ROOT}" "${REL}"
+
+rewrite() {
+  awk -v moddir="${MODDIR}" -F': ' '{
+    target = $1
+    sub(/:$/, "", target)
+    sub(/.*\//, "", target)
+    line = moddir "/" target ":"
+    if (NF > 1) {
+      n = split($2, deps, " ")
+      for (i = 1; i <= n; i++) {
+        d = deps[i]
+        if (d == "") continue
+        sub(/.*\//, "", d)
+        line = line " " moddir "/" d
+      }
+    }
+    print line
+  }'
+}
+rewrite < "${DEPMOD_ROOT}/lib/modules/${REL}/modules.dep" > "${FLAT}/modules.dep"
+
+for f in modules.alias modules.softdep modules.builtin modules.builtin.modinfo; do
+  [ -f "${DEPMOD_ROOT}/lib/modules/${REL}/${f}" ] && \
+    cp "${DEPMOD_ROOT}/lib/modules/${REL}/${f}" "${FLAT}/${f}"
+done
+
+# modules.order：与镜像内容一致
+find "${FLAT}" -name '*.ko' -printf '%f\n' | LC_ALL=C sort > "${FLAT}/modules.order"
+
+# modules.load：沿用原厂加载顺序，仅保留镜像内实际存在的模块
+: > "${FLAT}/modules.load"
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  [ -f "${FLAT}/${m}" ] && echo "${m}" >> "${FLAT}/modules.load"
+done < "${LOADLIST}"
+
+# SELinux 上下文：模块 vendor_file，etc 下 vendor_configs_file
 {
   echo "/ u:object_r:vendor_file:s0"
   echo "/vendor_dlkm u:object_r:vendor_file:s0"
@@ -108,8 +124,20 @@ FSCFG=$(mktemp)
   done
 } > "${FC}"
 
+# fs_config：目录 0755、文件 0644，路径前缀受 --mount-point 影响
+{
+  echo "/ 0 0 0755"
+  echo "vendor_dlkm 0 0 0755"
+  find "${WORK}" -mindepth 1 | sed "s|^${WORK}/||" | LC_ALL=C sort | while IFS= read -r p; do
+    if [ -d "${WORK}/${p}" ]; then
+      echo "vendor_dlkm/${p} 0 0 0755"
+    else
+      echo "vendor_dlkm/${p} 0 0 0644"
+    fi
+  done
+} > "${FSCFG}"
+
 rm -f "${OUT}"
-# 参数与原厂镜像保持一致：lz4hc、固定时间戳、挂载点、权限与 SELinux 标签
 "${TOOLS}/mkfs.erofs" --quiet \
   -zlz4hc -T 0 --all-root \
   --mount-point=/vendor_dlkm \

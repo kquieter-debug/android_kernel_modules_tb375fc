@@ -247,6 +247,14 @@ define_mgk_ko(
    `vendor_configs_file`），因为原厂的静态清单是按原内核 release 目录名列举的，
    sublevel 变化后会失配。
 
+7. **目录布局必须扁平（同样踩过坑）**：原厂 `vendor_dlkm` 的模块直接位于
+   `lib/modules/*.ko`，`modules.load` / `modules.dep` 也在同一层，
+   `modules.dep` 内使用绝对路径 `/vendor_dlkm/lib/modules/xxx.ko`。
+   若打成 `lib/modules/<release>/`（Kleaf `kernel_modules_install` 的默认布局），
+   即使 SELinux 标签正确，init 也找不到 `modules.load`，**一个模块都不会加载**。
+   `make_vendor_dlkm_trim.sh` 现在先按扁平结构 stage，再在临时版本目录里跑
+   `depmod`，最后把 `modules.dep` 的路径改写为扁平的绝对路径。
+
 ---
 
 ## 8. 许可
