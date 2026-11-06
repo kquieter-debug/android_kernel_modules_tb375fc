@@ -221,6 +221,32 @@ define_mgk_ko(
 5. **未在设备上验证本仓库产出的镜像**：本文档中的产物均只在构建侧校验
    （`fsck.erofs` 解包、`vermagic`、加载清单比对），未刷入设备。
 
+6. **镜像必须带 SELinux 标签（已踩坑）**：首次刷入早期版本镜像（只用
+   `mkfs.erofs --all-root` 打包）后，设备卡在 logo，无法进入开机动画。
+   `logcat` 中的决定性证据是：
+
+   ```
+   avc: denied { search } for comm="init.insmod.sh" name="/" dev="dm-7"
+        scontext=u:r:init_insmod_sh:s0 tcontext=u:object_r:unlabeled:s0 tclass=dir
+   ```
+
+   `dm-7` 即 `/vendor_dlkm`，其根目录为 `unlabeled`，导致模块加载器被 SELinux
+   拒绝进入，所有 vendor 模块无法加载，SurfaceFlinger 起不来（因此停在 logo，
+   与内核无关）。修正方式是在打包时按原厂参数补齐：
+
+   ```bash
+   mkfs.erofs -zlz4hc -T 0 --all-root \
+     --mount-point=/vendor_dlkm \
+     --fs-config-file=<逐路径 权限表> \
+     --file-contexts=<逐路径 SELinux 上下文> \
+     vendor_dlkm.img <staging_dir>
+   ```
+
+   `tools/make_vendor_dlkm_trim.sh` 已按此实现：上下文与 fs_config 均按实际
+   staged 内容逐路径生成（模块 `u:object_r:vendor_file:s0`，`etc/` 下为
+   `vendor_configs_file`），因为原厂的静态清单是按原内核 release 目录名列举的，
+   sublevel 变化后会失配。
+
 ---
 
 ## 8. 许可
