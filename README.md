@@ -202,6 +202,14 @@ define_mgk_ko(
    （与原厂模块 `depends=connadp,wmt_chrdev_wifi_connac2,…` 一致）。
    若后续出现真实的符号缺失，该开关会掩盖问题，需要逐项核对 `depends`。
 
+   副作用：本工程产出的 `wlan_drv_gen4m_6897.ko` 的 `depends` 只有 `cfg80211`，
+   原厂为 `connadp,wmt_chrdev_wifi_connac2,aee_aed,cfg80211,mtk_disp_notify,
+   pmic_lbat_service,conninfra,connfem`。也就是说 `modules.dep` 里的依赖边不完整，
+   **不能依赖 modprobe 自动拉起依赖**。当前 `vendor_dlkm_modules.load` 的顺序
+   （`connadp` → `connfem` → `conninfra` → `wmt_chrdev_wifi_connac2` → `wlan`）
+   满足加载顺序要求，Android init 按该顺序 insmod 即可。若要恢复完整 `depends`，
+   需要为这些模块提供 `KBUILD_EXTRA_SYMBOLS`（即把 connadp 等作为真正的 deps 接入）。
+
 3. **模块体积**：同一批模块本工程编出的体积约为原厂的 1.6 倍（编译选项差异，
    非源码问题）。未压缩镜像 48 MB、压缩后 18 MB，原厂为 15 MB。
 
