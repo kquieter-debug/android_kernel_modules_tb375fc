@@ -1,0 +1,221 @@
+# MTK MT6897 内核模块工程（TB375FC）
+
+本仓库是 `TB375FC` Kleaf 构建工作区中的**厂商内核模块**部分，与 `TB375FC/common`
+（Linux 6.1.138 + MTK 合并内核）配套，用于产出 `vendor_dlkm` 分区所需的 `.ko`。
+
+目标设备：MT8792 / MT6897 平台平板（`ro.product.device=TB375FC`，DT compatible
+`mediatek,MT6897`）。构建产物与设备现网内核（6.1.140-android14-11）在 ABI 层兼容，
+细节见第 7 节。
+
+---
+
+## 1. 目录结构
+
+```
+common-modules/mediatek/
+├── BUILD.bazel                     # Kleaf 目标：mgk_64_k61 内核/模块/镜像/dist
+├── mgk_ko.bzl                      # define_mgk_ko()：单个模块的 Kleaf 封装
+├── build.config.mgk.aarch64        # 厂商 profile 的构建配置（模块构建入口）
+├── vendor_dlkm_modules.load        # vendor_dlkm 的加载清单（全路径，187 项）
+├── tools/make_vendor_dlkm_trim.sh  # 裁剪并打包 vendor_dlkm 镜像
+├── README.vendor_dlkm.md           # vendor_dlkm 打包细节
+├── kernel_device_modules-6.1/      # MTK 设备驱动主体（BSP 交付件）
+└── vendor/mediatek/kernel_modules/ # 独立模块仓库集合
+    ├── connectivity/{bt,common,connfem,conninfra,fmradio,gps,wlan}
+    ├── gpu/                        # Mali (r25p0 ~ r44p1)
+    ├── mtkcam/                     # 相机（camsys/imgsensor/imgsys/…）
+    ├── fpsgo_cus/                  # FPSGO 客户层（引入）
+    ├── hbt_driver/                 # HBT 驱动（引入）
+    ├── hbt_driver_cus/             # HBT 客户变体（未接入）
+    ├── met_drv_v2/ met_drv_v3/ udc/ zram_ext/ extend_reclaim/
+```
+
+---
+
+## 2. 模块来源
+
+| 来源 | 版本 / 提交 | 覆盖范围 |
+|---|---|---|
+| 设备厂商 BSP 交付包（`kernel-6.1.138/kernel`） | Linux 6.1.138 | `kernel_device_modules-6.1/` 与 `vendor/` 的原始主体 |
+| `mt6897-devs/android_vendor_mediatek_kernel_modules` | `lineage-23.2` @ `6bceb1b8e3444dd6caf80ad7470c9e57bbdcd1ab` | `connectivity/wlan/core/gen4m`、`hbt_driver`、`hbt_driver_cus` |
+| `MiCode/MTK_kernel_modules` | `bsp-duchamp-u-oss` @ `e57cdab505850464e0179c8cb16d17b09cf8c524` | `fpsgo_cus` |
+
+引入说明：
+
+- **wlan gen4m**：BSP 包内 `connectivity/wlan/core/gen4m` 是悬空软链，实际驱动缺失。
+  该驱动是 `wlan_drv_gen4m_6897.ko`（CONNAC2X2_SOC7_0）的唯一来源，从同 SoC 的
+  lineage-23.2 分支补齐。
+- **hbt_driver**：BSP 包内无 `hbt_driver` 目录。`hbt.ko` 是 GPL 的 misc 设备 +
+  `mmap_lock` 跟踪驱动。
+- **fpsgo_cus**：BSP 包内只有 `performance/fpsgo_v3`（产出 `mtk_fpsgo.ko`），
+  `fpsgo.ko` 是其客户定制层，`depends=mtk_fpsgo`。
+- **hbt_driver_cus**：与 `hbt_driver` 同样产出 `hbt.ko`，两者互斥；当前接入
+  `hbt_driver`，`hbt_driver_cus` 保留源码未参与构建。
+
+上述来源均为公开仓库，许可证以各目录内的声明为准（GPL / Dual BSD-GPL /
+Proprietary 混合）。本仓库仅用于自有设备的维护与调试。
+
+---
+
+## 3. Kleaf / Bazel 工具链建立
+
+### 3.1 工作区构成
+
+本目录必须位于 Kleaf 工作区内才能构建，工作区至少需要：
+
+```
+<workspace>/
+├── WORKSPACE -> build/kernel/kleaf/bazel.WORKSPACE
+├── build/kernel/                     # kleaf（bazel.sh、bazel.WORKSPACE、BUILD 规则）
+├── build/bazel_common_rules/         # copy_to_dist_dir 等
+├── common/                           # 内核源码（6.1.138）
+├── common-modules/mediatek/          # 本仓库
+└── prebuilts/{clang,build-tools,kernel-build-tools,jdk,bazel,...}
+```
+
+官方方式是用 `repo` 拉取 AOSP Kleaf 工作区，再替换 `common` 与 `common-modules`：
+
+```bash
+repo init -u https://android.googlesource.com/kernel/manifest \
+  -b common-android14-6.1-2025-07
+repo sync -j8
+```
+
+本工作区对应的 manifest 基线：`kernel/superproject` = `common-android14-6.1-2025-07`，
+`build/kernel` = `main-kernel-build-2023`。
+
+### 3.2 工具链版本
+
+| 组件 | 版本 | 位置 |
+|---|---|---|
+| Clang / LLD | `clang-r487747c`（17.0.2） | `prebuilts/clang/host/linux-x86/` |
+| Bazel | 由 `tools/bazel` 包装（`build/kernel/kleaf/bazel.sh`） | `prebuilts/bazel/linux-x86_64/` |
+| 镜像工具 | `mkfs.erofs`、`mkuserimg_mke2fs`、`depmod`、`avbtool` | `prebuilts/kernel-build-tools/linux-x86/bin/` |
+| JDK | 11 | `prebuilts/jdk/jdk11/` |
+
+`tools/bazel` 是软链，指向 `build/kernel/kleaf/bazel.sh`；它负责设置
+`--output_user_root=out/bazel/output_user_root` 等参数，不要直接调用系统 bazel。
+
+### 3.3 本仓库的构建目标
+
+| 目标 | 作用 |
+|---|---|
+| `//common-modules/mediatek:mgk_64_k61_kernel_aarch64` | 厂商 profile 的内核（notrim，导出非 KMI 符号） |
+| `//common-modules/mediatek:mgk_64_k61` | 模块准备用的 kernel_build（`make modules`） |
+| `//common-modules/mediatek:mgk_64_k61_modules` | 全部模块的 kernel_module_group |
+| `//common-modules/mediatek:mgk_64_k61_modules_install` | 安装到 staging 目录 |
+| `//common-modules/mediatek:mgk_64_k61_images` | `vendor_dlkm.img`（erofs） |
+| `//common-modules/mediatek:mgk_64_k61_dist` | 分发到 `out/kernel_modules`（可 `bazel run`） |
+
+```bash
+# 全量构建（首次约 25 分钟，增量很快）
+tools/bazel build //common-modules/mediatek:mgk_64_k61_modules_install
+
+# 分发：Image / *.ko / vendor_dlkm.img → <workspace>/out/kernel_modules
+tools/bazel run //common-modules/mediatek:mgk_64_k61_dist
+
+# 裁剪版镜像（只含加载清单内的模块，约 18 MB）
+bash common-modules/mediatek/tools/make_vendor_dlkm_trim.sh
+```
+
+注意：`mgk_64_k61` 是 `kernel_build`，不可 `run`；可执行的只有 `mgk_64_k61_dist`。
+
+### 3.4 配置来源
+
+`build.config.mgk.aarch64` 定义 `KERNEL_DIR=common`，并在 `PRE_DEFCONFIG_CMDS` 中把
+`gki_defconfig` + `kernel_device_modules-6.1/arch/arm64/configs/mgk_64_k61_defconfig`
++ `userdebug.config` 合并为最终配置。
+
+新增模块所需的 `CONFIG_*` 应加在 `mgk_64_k61_defconfig`；
+内核侧不存在的符号通过 `kernel_device_modules-6.1/Kconfig.ext` 补充。
+
+---
+
+## 4. 新增一个模块
+
+1) 源码放入 `vendor/mediatek/kernel_modules/<name>/`，目录内提供 `Makefile`（递归驱动）
+   与 `Kbuild`（`obj-m` 定义）。例如 wlan 的写法：
+
+```make
+# Makefile：Kleaf 以 make -C <module_dir> 调用，需提供 all/modules_install/clean
+all:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
+modules_install:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules_install
+clean:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+```
+
+2) 添加 `BUILD.bazel`：
+
+```python
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+define_mgk_ko(
+    name = "foo",
+    outs = ["foo.ko"],
+    # deps = ["//…:conninfra"],   # 需要其它模块的 Module.symvers 时
+)
+```
+
+3) 把目标加入 `kernel_device_modules-6.1/kleaf_modules.bzl` 的
+   `MGK_64_K61_KLEAF_MODULES`（按路径排序）。
+
+4) 若该模块需要进入 `vendor_dlkm` 的加载列表，重新生成
+   `vendor_dlkm_modules.load`（见 `README.vendor_dlkm.md` 第 3 节）。
+
+---
+
+## 5. 设备树
+
+板级 DTS 位于
+`kernel_device_modules-6.1/arch/arm64/boot/dts/mediatek/tb8792p1_64_wifi/`，
+由 `mgk_64_k61` 的 kernel_build 一并编译。
+
+---
+
+## 6. 构建产物
+
+`out/kernel_modules/`（`mgk_64_k61_dist` 输出，flat）：
+
+| 文件 | 说明 |
+|---|---|
+| `Image` / `Image.gz` / `Image.lz4` | 内核镜像 |
+| `System.map` / `vmlinux` / `vmlinux.symvers` | 调试符号 |
+| `*.ko`（720 个） | 全部已编译模块（已 strip） |
+| `vendor_dlkm.img` | 全量 erofs 镜像 |
+| `vendor_dlkm_trim.img` | 裁剪后镜像（187 个加载模块，lz4hc 压缩） |
+
+---
+
+## 7. 已知限制与注意事项
+
+1. **wlan 的 Kbuild 入口被改造**：`connectivity/wlan/core/gen4m/` 下的
+   `Makefile` 与 `Kbuild` 是本工程重写的入口，原始文件保留为
+   `Makefile.dispatch` / `Kbuild.dispatch`。原因是厂商脚本依赖 ALPS 的
+   `$O/$M/DEVICE_MODULES_REL_DIR` 递归流程，与 Kleaf 的 `make -C <module_dir>`
+   调用方式不兼容。新入口固定 `MODULE_NAME=wlan_drv_gen4m_6897`、`SEGMENT=SP`。
+
+2. **wlan 的 modpost 告警**：`wlan_drv_gen4m_6897.ko` 引用 `connadp.ko` 导出的
+   `conn_pwr_*`、`aee_*`、`register_*_handler` 等 10 个符号，构建期不可见。
+   构建命令里加了 `KBUILD_MODPOST_WARN=1` 放行；运行期由 `connadp.ko` 提供
+   （与原厂模块 `depends=connadp,wmt_chrdev_wifi_connac2,…` 一致）。
+   若后续出现真实的符号缺失，该开关会掩盖问题，需要逐项核对 `depends`。
+
+3. **模块体积**：同一批模块本工程编出的体积约为原厂的 1.6 倍（编译选项差异，
+   非源码问题）。未压缩镜像 48 MB、压缩后 18 MB，原厂为 15 MB。
+
+4. **内核 sublevel 差异**：本目录产出的模块 `vermagic` 为
+   `6.1.138-android14-11-maybe-dirty`，设备现运行内核为
+   `6.1.140-android14-11-maybe-dirty`。由于 `CONFIG_MODVERSIONS=y`，
+   `same_magic()` 只比较 flag 段与符号 CRC，版本前缀不一致不影响加载。
+
+5. **未在设备上验证本仓库产出的镜像**：本文档中的产物均只在构建侧校验
+   （`fsck.erofs` 解包、`vermagic`、加载清单比对），未刷入设备。
+
+---
+
+## 8. 许可
+
+各子目录保留上游原始许可证声明（`SPDX-License-Identifier`）。整体以 GPL-2.0
+为主，部分 MediaTek 组件为 Proprietary。使用与分发前请逐目录确认。

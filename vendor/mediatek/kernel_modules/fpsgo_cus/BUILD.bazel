@@ -1,0 +1,25 @@
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+# fpsgo.ko: MediaTek FPSGO 客户定制层，依赖树内 fpsgo_v3 产出的 mtk_fpsgo.ko
+# （CONFIG_MTK_FPSGO_V3=m 已启用）。
+# 源码来源: MiCode/MTK_kernel_modules @ bsp-duchamp-u-oss
+define_mgk_ko(
+    name = "fpsgo_cus",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "**/*.o_shipped",
+        "**/.*.o.cmd_shipped",
+        "**/Kbuild",
+        "**/Makefile",
+    ]),
+    outs = [
+        "fpsgo.ko",
+    ],
+)

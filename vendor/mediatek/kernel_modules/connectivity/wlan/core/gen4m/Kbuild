@@ -1,0 +1,7 @@
+# Kleaf 入口：为 TB375FC (MT6897 / CONNAC2X2_SOC7_0) 固定模块变体。
+# 原始的分发逻辑保留在 Kbuild.dispatch。
+KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+SEGMENT := SP
+MODULE_NAME := wlan_drv_gen4m_6897
+
+include $(KO_CODE_PATH)/Kbuild.6897

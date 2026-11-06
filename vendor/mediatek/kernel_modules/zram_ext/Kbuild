@@ -1,0 +1,15 @@
+#HAVE_KERNEL_5_4 = $(shell test $(PATCHLEVEL)="4" && echo 1)
+#HAVE_KERNEL_5_10 = $(shell test $(PATCHLEVEL)="10" && echo 1)
+#HAVE_KERNEL_5_15 = $(shell test $(PATCHLEVEL)="15" && echo 1)
+
+ZRAM_SRC = zram_601
+
+# add -Wall to try to catch everything we can.
+EXTRA_CFLAGS += -Wall
+EXTRA_CFLAGS += -DCONFIG_ZRAM_WRITEBACK
+
+obj-m += zram_ext.o
+
+zram_ext-y += $(ZRAM_SRC)/zram_drv.o \
+              $(ZRAM_SRC)/zcomp.o
+

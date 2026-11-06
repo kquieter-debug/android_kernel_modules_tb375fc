@@ -1,0 +1,14 @@
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+# hbt.ko: MediaTek HBT 驱动。
+# 源码来源: mt6897-devs/android_vendor_mediatek_kernel_modules @ lineage-23.2
+define_mgk_ko(
+    name = "hbt_int",
+    outs = ["hbt.ko"],
+)

@@ -1,0 +1,135 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
+load("//build/kernel/kleaf:kernel.bzl", "kernel_build", "kernel_images", "kernel_module_group", "kernel_modules_install")
+load("//build/kernel/kleaf:constants.bzl", "DEFAULT_GKI_OUTS")
+load("//common:modules.bzl", "get_gki_modules_list")
+load(
+    "//common-modules/mediatek/kernel_device_modules-6.1:kleaf_modules.bzl",
+    "MGK_64_K61_KLEAF_MODULES",
+)
+
+# Mirrors the vendor's mgk_module_outs: stock GKI set plus the extra modules its
+# userdebug profile enables (and the pstore modules from userdebug.config).
+_GKI_MODULES_FOR_PROFILE = get_gki_modules_list("arm64") + [
+    # keep sorted
+    "drivers/firmware/arm_ffa/ffa-module.ko",
+    "drivers/gpu/drm/display/drm_display_helper.ko",
+    "drivers/gpu/drm/drm_dma_helper.ko",
+    "drivers/iio/buffer/industrialio-triggered-buffer.ko",
+    "drivers/iio/buffer/kfifo_buf.ko",
+    "drivers/leds/leds-pwm.ko",
+    "drivers/media/v4l2-core/v4l2-flash-led-class.ko",
+    "drivers/net/phy/microchip.ko",
+    "drivers/net/phy/smsc.ko",
+    "drivers/net/usb/lan78xx.ko",
+    "drivers/net/usb/smsc75xx.ko",
+    "drivers/net/usb/smsc95xx.ko",
+    "drivers/perf/arm_dsu_pmu.ko",
+    "drivers/phy/mediatek/phy-mtk-mipi-dsi-drv.ko",
+    "drivers/power/reset/reboot-mode.ko",
+    "drivers/power/reset/syscon-reboot-mode.ko",
+    "drivers/tee/tee.ko",
+    "drivers/thermal/thermal-generic-adc.ko",
+    "fs/pstore/pstore_blk.ko",
+    "fs/pstore/pstore_zone.ko",
+    "net/mac80211/mac80211.ko",
+    "net/wireless/cfg80211.ko",
+]
+
+# Untrimmed vendor-profile base kernel. Vendor modules need non-KMI exports that the
+# stock trimmed GKI Module.symvers does not publish, so this optional profile builds
+# its own vmlinux instead of using the KMI-restricted //common kernel as base.
+kernel_build(
+    name = "mgk_64_k61_kernel_aarch64",
+    srcs = [
+        "//common:kernel_aarch64_sources",
+        "//common-modules/mediatek/kernel_device_modules-6.1:mgk_sources",
+        "//common-modules/mediatek/kernel_device_modules-6.1:mgk_configs",
+    ],
+    outs = DEFAULT_GKI_OUTS,
+    module_outs = _GKI_MODULES_FOR_PROFILE,
+    build_config = "build.config.mgk.aarch64",
+    kconfig_ext = "//common-modules/mediatek/kernel_device_modules-6.1:Kconfig.ext",
+    module_signing_key = "//common:kernel_aarch64/certs/signing_key.pem",
+    make_goals = [
+        # do not sort
+        "Image",
+        "Image.lz4",
+        "Image.gz",
+        "modules",
+    ],
+    strip_modules = True,
+    trim_nonlisted_kmi = False,
+)
+
+kernel_build(
+    name = "mgk_64_k61",
+    srcs = [
+        "//common:kernel_aarch64_sources",
+        "//common-modules/mediatek/kernel_device_modules-6.1:mgk_sources",
+        "//common-modules/mediatek/kernel_device_modules-6.1:mgk_configs",
+    ],
+    outs = [".config"],
+    module_outs = _GKI_MODULES_FOR_PROFILE,
+    build_config = "build.config.mgk.aarch64",
+    base_kernel = ":mgk_64_k61_kernel_aarch64",
+    kconfig_ext = "//common-modules/mediatek/kernel_device_modules-6.1:Kconfig.ext",
+    module_signing_key = "//common:kernel_aarch64/certs/signing_key.pem",
+    make_goals = ["modules"],
+    strip_modules = True,
+    trim_nonlisted_kmi = False,
+    modules_prepare_force_generate_headers = True,
+)
+
+filegroup(
+    name = "mgk_64_k61_external_modules",
+    srcs = MGK_64_K61_KLEAF_MODULES,
+)
+
+kernel_module_group(
+    name = "mgk_64_k61_modules",
+    srcs = [
+        "//common-modules/mediatek/kernel_device_modules-6.1:mgk_device_modules",
+    ] + MGK_64_K61_KLEAF_MODULES,
+)
+
+kernel_modules_install(
+    name = "mgk_64_k61_modules_install",
+    kernel_build = ":mgk_64_k61",
+    kernel_modules = [":mgk_64_k61_modules"],
+)
+
+# vendor_dlkm 分区镜像。文件系统类型与原厂一致（erofs）。
+# vendor_dlkm_modules.load 是从原厂 ROM 的 modules.load 派生出的"全路径"清单，
+# 仅保留本树实际构建得出来的同名模块，因此：
+#   * 开机加载集合与原厂一致（原版有、本树构造不出的 3 个模块自然缺失：
+#     fpsgo.ko / hbt.ko / wlan_drv_gen4m_6897.ko）；
+#   * 不会因 grep 的单词匹配把 leds-mtk-pwm.ko 之类误纳入。
+# 清单需要随模块增删同步更新，重新生成见 common-modules/mediatek/README.vendor_dlkm.md。
+kernel_images(
+    name = "mgk_64_k61_images",
+    build_vendor_dlkm = True,
+    kernel_build = ":mgk_64_k61",
+    kernel_modules_install = ":mgk_64_k61_modules_install",
+    vendor_dlkm_fs_type = "erofs",
+    vendor_dlkm_modules_list = "vendor_dlkm_modules.load",
+)
+
+# 分发目标，输出到 <workspace>/out/kernel_modules：
+#   tools/bazel run //common-modules/mediatek:mgk_64_k61_dist
+# 内容：Image / Image.gz / Image.lz4 / System.map / vmlinux、全量 *.ko、
+#       vendor_dlkm.img 及其 modules.load / modules.blocklist
+copy_to_dist_dir(
+    name = "mgk_64_k61_dist",
+    data = [
+        ":mgk_64_k61_images",
+        ":mgk_64_k61_kernel_aarch64",
+        ":mgk_64_k61_modules_install",
+    ],
+    dist_dir = "out/kernel_modules",
+    flat = True,
+    wipe_dist_dir = True,
+)

@@ -1,0 +1,47 @@
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+filegroup(
+    name = "sources",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ],
+    ),
+)
+
+# wlan_drv_gen4m_6897.ko: MT6897 (CONNAC2X2_SOC7_0) 的 gen4m WLAN 驱动。
+# 通过 Kbuild.kleaf 固定 MODULE_NAME / SEGMENT 后走厂商的 Kbuild.6897 分支。
+# 源码来源: mt6897-devs/android_vendor_mediatek_kernel_modules @ lineage-23.2
+#           connectivity/wlan/core/gen4m
+define_mgk_ko(
+    name = "wlan_drv_gen4m_6897",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ],
+    ) + [
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/common:headers",
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/connfem:headers",
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/conninfra:headers",
+    ],
+    outs = ["wlan_drv_gen4m_6897.ko"],
+    deps = [
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/connfem:connfem",
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/conninfra:conninfra",
+    ],
+    makefile = ["Makefile"],
+)

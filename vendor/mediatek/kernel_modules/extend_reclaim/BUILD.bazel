@@ -1,0 +1,21 @@
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+define_mgk_ko(
+    name = "extend_reclaim",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
+        "**/Kconfig",
+    ]),
+    outs = [
+        "extend_reclaim.ko",
+    ],
+)

@@ -1,0 +1,26 @@
+load("//common-modules/mediatek:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+define_mgk_ko(
+    name = "wmt",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
+    ]) + [
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/bt/mt66xx:headers",
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/common:headers",
+    ],
+    outs = [
+        "bt_drv_connac1x.ko",
+    ],
+    deps = [
+        "//common-modules/mediatek/vendor/mediatek/kernel_modules/connectivity/common:wmt_drv",
+    ],
+)

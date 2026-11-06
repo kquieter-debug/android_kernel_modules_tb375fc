@@ -1,0 +1,34 @@
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
+load(
+    ":kleaf_modules.bzl",
+    "MGK_64_K61_DEVICE_MODULES",
+    "MGK_64_K61_PLATFORM_DEVICE_MODULES",
+    "MGK_64_K61_USERDEBUG_DEVICE_MODULES",
+)
+
+filegroup(
+    name = "mgk_sources",
+    srcs = glob(["**"], exclude = ["BUILD.bazel", "**/*.bzl", "certs/**", ".*", "**/.*"]),
+)
+
+filegroup(
+    name = "mgk_configs",
+    srcs = glob(["arch/arm64/configs/*", "kernel/configs/**", "**/Kconfig", "drivers/cpufreq/Kconfig.*"]) + ["Kconfig.ext", "Makefile.ext"],
+)
+
+mgk_64_k61_userdebug_module_outs = sorted(depset(
+    MGK_64_K61_DEVICE_MODULES +
+    [path for path, platform in MGK_64_K61_PLATFORM_DEVICE_MODULES.items() if platform == "mt6897"] +
+    MGK_64_K61_USERDEBUG_DEVICE_MODULES,
+).to_list())
+
+kernel_module(
+    name = "mgk_device_modules",
+    srcs = glob(["**"], exclude = ["BUILD.bazel", "**/*.bzl", "certs/**", ".*", "**/.*"]),
+    outs = mgk_64_k61_userdebug_module_outs,
+    kernel_build = "//common-modules/mediatek:mgk_64_k61",
+)

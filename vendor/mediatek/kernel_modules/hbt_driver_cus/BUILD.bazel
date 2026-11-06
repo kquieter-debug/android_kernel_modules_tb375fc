@@ -1,0 +1,21 @@
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+# hbt_driver 的客户定制变体，同样产出 hbt.ko，与 hbt_driver 互斥。
+# 当前未接入构建：默认使用 hbt_driver: hbt_int。如需切换，把
+# kleaf_modules.bzl 中的 hbt_driver 条目替换为本目标的 define_mgk_ko。
+filegroup(
+    name = "sources",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "**/.*",
+            "**/.*/**",
+            "**/BUILD.bazel",
+            "**/*.bzl",
+        ],
+    ),
+)

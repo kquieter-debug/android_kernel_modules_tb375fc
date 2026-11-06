@@ -1,0 +1,15 @@
+KERNEL_DIR=common
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki.aarch64
+
+DEVICE_MODULES_DIR=common-modules/mediatek/kernel_device_modules-6.1
+DEVICE_MODULES_REL_DIR=../common-modules/mediatek/kernel_device_modules-6.1
+DEVICE_MODULES_PATH="\$(srctree)/\$(DEVICE_MODULES_REL_DIR)"
+DEVCIE_MODULES_INCLUDE="-I\$(DEVICE_MODULES_PATH)/include"
+
+# The vendor defconfig is a merged menuconfig artifact: merge it before make so the
+# platform-gated symbols resolve through KCONFIG_EXT, matching the vendor build flow.
+DEFCONFIG=mgk_64_k61_defconfig
+POST_DEFCONFIG_CMDS=""
+PRE_DEFCONFIG_CMDS="mkdir -p \${OUT_DIR}/arch/arm64/configs && KCONFIG_CONFIG=\${OUT_DIR}/arch/arm64/configs/\${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/arch/arm64/configs/mgk_64_k61_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/kernel/configs/userdebug.config"
+
