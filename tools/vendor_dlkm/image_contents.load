@@ -11,11 +11,9 @@ extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/clk/mediatek/fhc
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/aee/mrdump/mrdump.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/monitor_hang/monitor_hang.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/dma-buf/heaps/system_heap.ko
-extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/trusted_mem/ffa_v10.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/geniezone/gz-trusty/gz_trusty_mod.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/geniezone/gz-trusty/gz_ipc_mod.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/geniezone/gz_tz_system.ko
-extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/tee/gud/600/MobiCoreDriver/mcDrvModule.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/trusted_mem/tmem_ffa.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/dma-buf/heaps/mtk_sec_heap.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/dma-buf/heaps/mtk_heap_debug.ko
@@ -34,7 +32,6 @@ kernel/drivers/gpu/drm/display/drm_display_helper.ko
 kernel/drivers/gpu/drm/drm_dma_helper.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/hardwareinfo/hardware_info.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/leds/leds-mtk.ko
-extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/soc/mediatek/scpsys-dummy.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/soc/mediatek/mtk-dvfsrc.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/mtk-interconnect/mtk-icc-core.ko
 extra/common-modules/mediatek/kernel_device_modules-6.1/drivers/misc/mediatek/mmdvfs/mtk-mmdvfs-ftrace.ko

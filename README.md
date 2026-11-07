@@ -330,6 +330,32 @@ define_mgk_ko(
 
    校验（命中 1 次即为已签名）。
 
+10. **不要把「替代实现」模块打进镜像（会污染 `modules.dep`）**：本树会同时产出
+    某些子系统的两套实现，而设备上实际运行的是 vendor_boot 那一套：
+
+    | 本树产出 | 设备实际使用 | 冲突形式 |
+    |---|---|---|
+    | `ffa_v10.ko` | `ffa_module.ko`（vendor_boot） | `exports duplicate symbol ffa_bus_type` |
+    | `mcDrvModule.ko` | `mcDrvModule_ffa.ko`（vendor_boot） | `exports duplicate symbol mc_close_device` |
+    | `scpsys-dummy.ko` | `mtk_scpsys*.ko`（vendor_boot） | 加载失败（ENOEXEC） |
+
+    危害不在它们自身，而在 **`depmod` 会把它们记进依赖表**：`mali_kbase`、
+    `ged`、`gz_main_mod`、`tmem_ffa`、`mtk_sec_heap` 等 11 个模块的 `depends`
+    会被写成包含 `ffa_v10.ko` / `mcDrvModule.ko`。`modprobe` 必须先满足依赖，
+    于是加载这些模块时会先拉 `ffa_v10`，而它必然失败 → **整条链失败**。
+
+    实测症状：开机后 `mali_kbase` 未加载 → `/dev/mali0` 不存在 →
+    SurfaceFlinger 在 `SkiaGLRenderEngine::chooseEglConfig` 崩溃 →
+    `init.svc.surfaceflinger=restarting`，设备停在 logo（不是 panic，不重启）。
+
+    修法是把这三个模块从 `image_contents.load` 中剔除。剔除后 `depends` 里不再
+    出现它们，未定义符号在 `insmod` 时直接由已加载的 vendor_boot 模块解析。
+    剔除后实测：192 条加载清单 **0 失败**，WiFi/BT/GPU/音频/视频/相机/触摸全部就位。
+
+    通用判据：**凡「本树产出、但设备上已有同名功能的另一实现」的模块，都不应
+    进入镜像**；判定方法是在运行系统上 `insmod` 该模块，若报
+    `exports duplicate symbol` 或 `File exists`，即属此类。
+
 ---
 
 ## 8. system_dlkm 构建
