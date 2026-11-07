@@ -281,7 +281,29 @@ vendor_dlkm 而内核是 `//common:kernel_aarch64`（GKI 配置），结果所�
 insmod 报 `Exec format error`，内核打印 `disagrees about version of symbol module_layout`
 ——两者的 `module_layout` CRC 分别是 `0xea759d7f` 与 `0x9efa483d`。
 
-## 9. 许可
+## 9. ABI 一致性：module_layout CRC
+
+内核与模块必须由**同一份配置**编译，否则内核加载模块时报
+`disagrees about version of symbol module_layout`（表现为 `insmod: Exec format error`）。
+`module_layout` 是 `struct module` 布局的哈希，任何改变该结构体的 `CONFIG_*` 都会让它变化。
+
+实测数据：
+
+| 构建 | module_layout CRC |
+|---|---|
+| GKI（`//common:kernel_aarch64`） | `0xea759d7f` |
+| Lenovo 原厂 vendor 模块 | `0xea759d7f` |
+| 本工程（`gki_defconfig` + `mgk_64_k61_defconfig`，无 userdebug） | `0xea759d7f` |
+| 本工程（再合并完整 `userdebug.config`） | **`0x9efa483d`** |
+
+结论：**`kernel/configs/userdebug.config` 会改变 `struct module` 布局**。因此
+`build.config.mgk.aarch64` 不再合并它，改为只合并
+`kernel/configs/mgk_debug_min.config`（仅保留会产出 `.ko` 的开关与 pstore 参数）。
+
+这一条同时解释了为什么不能只换 vendor_dlkm：设备上的 `vendor_boot` ramdisk 内含
+222 个模块，它们与原厂内核同样是 `0xea759d7f`，内核必须与之匹配，否则第一阶段就失败。
+
+## 10. 许可
 
 各子目录保留上游原始许可证声明（`SPDX-License-Identifier`）。整体以 GPL-2.0
 为主，部分 MediaTek 组件为 Proprietary。使用与分发前请逐目录确认。

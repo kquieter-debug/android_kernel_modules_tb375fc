@@ -9,7 +9,12 @@ DEVCIE_MODULES_INCLUDE="-I\$(DEVICE_MODULES_PATH)/include"
 
 # The vendor defconfig is a merged menuconfig artifact: merge it before make so the
 # platform-gated symbols resolve through KCONFIG_EXT, matching the vendor build flow.
+#
+# 注意：这里合并的是 kernel/configs/mgk_debug_min.config，**不是** userdebug.config。
+# 完整的 userdebug.config 会改变 struct module 布局，使 module_layout CRC 变成
+# 0x9efa483d，与原厂内核/模块（0xea759d7f）不兼容，进而导致设备无法开机。
+# mgk_debug_min.config 只保留会产出 .ko 的开关与 pstore 参数。
 DEFCONFIG=mgk_64_k61_defconfig
 POST_DEFCONFIG_CMDS=""
-PRE_DEFCONFIG_CMDS="mkdir -p \${OUT_DIR}/arch/arm64/configs && KCONFIG_CONFIG=\${OUT_DIR}/arch/arm64/configs/\${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/arch/arm64/configs/mgk_64_k61_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/kernel/configs/userdebug.config"
+PRE_DEFCONFIG_CMDS="mkdir -p \${OUT_DIR}/arch/arm64/configs && KCONFIG_CONFIG=\${OUT_DIR}/arch/arm64/configs/\${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/arch/arm64/configs/mgk_64_k61_defconfig ${ROOT_DIR}/${DEVICE_MODULES_DIR}/kernel/configs/mgk_debug_min.config"
 
