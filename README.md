@@ -83,6 +83,8 @@ common-modules/mediatek/
 
 ## 许可
 
-本仓库聚合了多方来源的代码，许可证按目录内的声明为准（GPL / Dual BSD-GPL /
-Proprietary 混合）。来源与提交号见 [NOTICE.md](NOTICE.md)。仅用于自有设备的
-维护与调试。
+本仓库自有部分（`tools/`、`docs/`、`mipp/`、构建文件）按根目录 [LICENSE](LICENSE)
+授权（GPL-2.0）。聚合进来的第三方组件（MTK 厂商驱动、上游模块）按各自目录内的
+声明为准，为 GPL / Dual BSD-GPL / Proprietary 混合，GPL-2.0 不覆盖它们。
+
+来源与上游提交号见 [NOTICE.md](NOTICE.md)。

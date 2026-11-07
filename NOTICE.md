@@ -26,17 +26,20 @@
 
 ## 2. 许可
 
+仓库根目录的 `LICENSE` 为 **GPL-2.0**，适用于本仓库自有部分（`tools/`、`docs/`、
+构建文件、`mipp/`）。仓库内聚合的第三方组件按各自声明授权：
+
 | 范围 | 许可 |
 |---|---|
+| 本仓库自有部分（`tools/`、`docs/`、`mipp/`、构建文件） | GPL-2.0（见 `LICENSE`） |
 | MTK 厂商驱动主体（`kernel_device_modules-6.1/`、`vendor/`） | 以各文件头部声明为准，GPL-2.0 与 Proprietary 混合 |
 | `hbt_driver`、`hbt_driver_cus` | GPL-2.0 |
 | `connectivity/wlan/core/gen4m` | Dual BSD / GPL |
 | `fpsgo_cus` | Proprietary（客户定制层） |
-| `mipp` | 本仓库自有 |
-| `tools/`、`docs/`、构建文件 | 本仓库自有 |
 
-**注意**：仓库内包含 Proprietary 组件。分发或再发布前，请自行确认各组件许可条款。
-本仓库仅用于自有设备的维护与调试。
+**注意**：仓库内含 Proprietary 组件，GPL-2.0 不能覆盖它们。分发或再发布前，
+请自行确认各组件条款；`LICENSE` 仅对本仓库自有部分作出授权。本仓库用于自有
+设备的维护与调试。
 
 ## 3. 预编译对象
 
