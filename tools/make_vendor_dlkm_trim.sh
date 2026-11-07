@@ -74,6 +74,9 @@ cp "${CFG_DIR}/build.prop" "${WORK}/etc/build.prop"
 count=$(find "${FLAT}" -name '*.ko' | wc -l)
 echo "staged modules: ${count}（缺失 ${missing}）"
 
+# 模块签名：未签名模块导出 GKI 保护符号会被内核拒绝（EACCES）
+bash "${PKG_DIR}/tools/sign_modules.sh" "${FLAT}"
+
 # depmod 需要版本目录，在临时根里生成后再把路径改写成扁平的绝对路径
 mkdir -p "${DEPMOD_ROOT}/lib/modules/${REL}"
 cp "${FLAT}"/*.ko "${DEPMOD_ROOT}/lib/modules/${REL}/"

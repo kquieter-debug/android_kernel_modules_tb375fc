@@ -2,3 +2,4 @@ ccci_util_lib.ko
 ccci_auxadc.ko
 ccci_md_all.ko
 ccmni.ko
+zsmalloc.ko

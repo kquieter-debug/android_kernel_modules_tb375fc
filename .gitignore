@@ -15,6 +15,9 @@ modules.builtin.modinfo
 !*.o_shipped
 !*.cmd_shipped
 
+# 本地编译的工具（sign_modules.sh 首次运行会生成）
+tools/bin/
+
 # 编辑器与系统文件
 *.swp
 .DS_Store

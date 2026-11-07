@@ -291,6 +291,45 @@ define_mgk_ko(
    表现为 logo 后立即重启（不是 panic，是启动流程无法完成）。
    `tools/solve_deps.py` 只保留为离线诊断工具，**不要**用它的输出直接当加载清单。
 
+9. **模块必须签名（否则导出保护符号会被拒）**：内核 `kernel/module/main.c` 的
+   `verify_exported_symbols()` 中有：
+
+   ```c
+   if (!mod->sig_ok && gki_is_module_protected_export(sym)) {
+           pr_err("%s: exports protected symbol %s\n", ...);
+           return -EACCES;
+   }
+   ```
+
+   即**未签名模块只要导出了 GKI 保护符号，就会被拒绝加载**，`insmod` 表现为
+   `Permission denied`。已确认命中两个模块：
+
+   | 模块 | 被拒符号 | 连带影响 |
+   |---|---|---|
+   | `libarc4.ko` | `arc4_setkey` / `arc4_crypt` | `mac80211` 缺符号，软 AP 不可用 |
+   | `mii.ko` | `generic_mii_ioctl` | `usbnet` → `smsc75xx/95xx` 全链失效 |
+
+   修法是签名，不是改配置。注意**不能**用 `CONFIG_CRYPTO_LIB_ARC4=y` 绕开：
+   `net/mac80211/Kconfig` 里的 `select CRYPTO_LIB_ARC4` 会把强度钉在 `=m`
+   （`select` 不超过选择者），该行会被 Kconfig 静默改回 `m`。
+
+   而 `CONFIG_MODULE_SIG_ALL=y` 在本工程的 Kleaf 环境下**不可用**：签名阶段由
+   `scripts/Makefile.modinst` 调用 `sign-file`，需要 `certs/signing_key.x509`，
+   但该证书在内核构建沙箱内生成后未作为产物导出，构建会失败于
+   `sign-file: certs/signing_key.x509`（`NO_SUCH_FILE`）。
+
+   因此签名放在打包阶段完成：`tools/sign_modules.sh` 用内核构建同一份
+   `certs/signing_key.pem` + `.x509`（来自 `//common:kernel_aarch64/certs/`）
+   对 staging 目录内每个 `.ko` 执行 `sign-file sha1`。签名密钥与内核
+   `CONFIG_MODULE_SIG_KEY` 一致，故内核 `builtin_trusted_keys` 中已有对应证书，
+   `sig_ok` 为真。两个镜像脚本都会调用它，产物可用
+
+   ```bash
+   strings -a xxx.ko | grep 'Module signature appended'
+   ```
+
+   校验（命中 1 次即为已签名）。
+
 ---
 
 ## 8. system_dlkm 构建
