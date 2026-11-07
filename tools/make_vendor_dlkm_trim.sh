@@ -23,15 +23,21 @@ DIST="${ROOT}/out/kernel_modules"
 CFG_DIR="${PKG_DIR}/tools/vendor_dlkm"
 # 镜像内容：原厂镜像里的全部模块中本树能构建的部分
 LIST="${CFG_DIR}/image_contents.load"
-# 开机自动加载清单：由 tools/solve_deps.py 生成的依赖排序结果
-# （原厂 modules.load 顺序 + 补入的符号提供者，已做拓扑排序）
-LOADLIST="${CFG_DIR}/modules.load.final"
+# 开机自动加载清单：严格沿用原厂 modules.load 的顺序。
+# 顺序本身编码了硬件上电次序（时钟→pinctrl→PMIC→regulator→power domain→display），
+# 不能替换成按符号依赖排出来的顺序，否则早启动阶段探测会失序。
+LOADLIST="${CFG_DIR}/modules.load.stock"
+# 需要在 anchor 之前补入的符号提供者（本树把这些编成独立模块，原厂是内建）。
+# 只补真正缺少的：CCCI 簇提供 get_smem_phy_start_addr / exec_ccci_kern_func 等，
+# conninfra 及其上面的 WiFi/BT/FM 依赖它们。
+EXTRA="${CFG_DIR}/modules.load.extra"
+ANCHOR=connadp.ko
 STAGE_BIN="${ROOT}/bazel-bin/common-modules/mediatek/mgk_64_k61_modules_install/staging"
 TOOLS="${ROOT}/prebuilts/kernel-build-tools/linux-x86/bin"
 OUT="${1:-${DIST}/vendor_dlkm_trim.img}"
 MODDIR=/vendor_dlkm/lib/modules
 
-for f in "${DIST}" "${LIST}" "${LOADLIST}" "${STAGE_BIN}" \
+for f in "${DIST}" "${LIST}" "${LOADLIST}" "${EXTRA}" "${STAGE_BIN}" \
          "${TOOLS}/mkfs.erofs" "${TOOLS}/depmod" "${CFG_DIR}/build.prop"; do
   [ -e "$f" ] || { echo "缺少: $f" >&2; exit 1; }
 done
@@ -105,12 +111,34 @@ done
 # modules.order：与镜像内容一致
 find "${FLAT}" -name '*.ko' -printf '%f\n' | LC_ALL=C sort > "${FLAT}/modules.order"
 
-# modules.load：沿用原厂加载顺序，仅保留镜像内实际存在的模块
+# 合并加载清单：原厂顺序 + 在 anchor 处插入 EXTRA
+TARGET=$(mktemp)
+awk -v anchor="${ANCHOR}" -v extra="${EXTRA}" '
+  BEGIN {
+    n = 0
+    while ((getline line < extra) > 0) {
+      gsub(/\r/, "", line)
+      if (line != "") ins[++n] = line
+    }
+    close(extra)
+    done = 0
+  }
+  {
+    if (!done && $0 == anchor) {
+      for (i = 1; i <= n; i++) print ins[i]
+      done = 1
+    }
+    print
+  }
+' "${LOADLIST}" > "${TARGET}"
+
+# modules.load：按合并后的清单，仅保留镜像内实际存在的模块
 : > "${FLAT}/modules.load"
 while IFS= read -r m; do
   [ -n "$m" ] || continue
   [ -f "${FLAT}/${m}" ] && echo "${m}" >> "${FLAT}/modules.load"
-done < "${LOADLIST}"
+done < "${TARGET}"
+rm -f "${TARGET}"
 
 # SELinux 上下文：模块 vendor_file，etc 下 vendor_configs_file
 {

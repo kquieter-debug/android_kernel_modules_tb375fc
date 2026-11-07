@@ -255,6 +255,42 @@ define_mgk_ko(
    `make_vendor_dlkm_trim.sh` 现在先按扁平结构 stage，再在临时版本目录里跑
    `depmod`，最后把 `modules.dep` 的路径改写为扁平的绝对路径。
 
+8. **`modules.load` 必须沿用原厂顺序，不能按符号依赖重排（第三次踩坑）**：
+   本树把 CMDQ / ADSP / AEE / SLBC / VCOREFS / EMI / DVFSRC 等子系统编成了独立
+   模块，而原厂把它们内建在 vmlinux 里。因此"缺符号"看起来像是需要把这些
+   provider 全部补进 `modules.load`。**这个做法会导致设备在 logo 阶段崩溃重启。**
+
+   实测依据（在已正常启动的系统上逐个 `insmod` 验证）：
+
+   | 模块 | 结果 |
+   |---|---|
+   | `ccci_util_lib` / `ccci_auxadc` / `ccci_md_all` / `ccmni` | 加载成功，`conninfra` 随之成功，`vendor.connsys.driver.ready=yes` 触发 BT 驱动 |
+   | `zsmalloc` / `irq_monitor` | 加载成功 |
+   | `ffa_v10` | 失败：`exports duplicate symbol ffa_bus_type (owned by ffa_module)` |
+   | `mcDrvModule` | 失败：`exports duplicate symbol mc_close_device (owned by mcDrvModule_ffa)` |
+   | `scpsys-dummy` | 失败：`Exec format error` |
+   | `libarc4` | 失败：`Permission denied`（导出 KMI 保护符号） |
+
+   关键事实：**这些 provider 绝大多数已经在设备上了**——vendor_boot 的 ramdisk
+   提供 222 个模块（`mtk_dramc`、`emi`、`smpu`、`mtk_slbc`、`mtk-mml`、
+   `mediatek-drm`、`aee_aed`、`mrdump`、`ffa_module`、`mcDrvModule_ffa`、
+   `mtk_scpsys` 等），`/proc/modules` 可直接确认。把它们再塞进 `vendor_dlkm`
+   的加载清单，对已加载者是空操作，对未加载者则是引入了**互斥的另一套实现**。
+
+   真正缺的只有 CCCI 一簇（4 个模块）。它们提供 `get_smem_phy_start_addr`、
+   `exec_ccci_kern_func` 等符号，是 `conninfra` → WiFi/BT/FM 的前置条件。
+
+   因此 `modules.load` 由 `modules.load.stock`（原厂 187 项）加
+   `modules.load.extra`（CCCI 4 项，插在 `connadp.ko` 之前）合并而成，
+   合计 191 项；与原厂清单的差异只有这 4 行，顺序完全一致。
+
+   **顺序本身编码硬件上电次序**（时钟 → pinctrl → PMIC → regulator →
+   power domain → display）。`init.insmod.sh` 在 `early-init` 用
+   `modprobe -a -d /vendor/lib/modules $(cat modules.load)` 一次性加载，
+   依赖由 `modules.dep` 解析；顺序被重排后，早启动阶段的探测会失序，
+   表现为 logo 后立即重启（不是 panic，是启动流程无法完成）。
+   `tools/solve_deps.py` 只保留为离线诊断工具，**不要**用它的输出直接当加载清单。
+
 ---
 
 ## 8. system_dlkm 构建
