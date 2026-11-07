@@ -55,7 +55,6 @@ common-modules/mediatek/
 ├── build.config.mgk.aarch64         vendor profile build config
 ├── kernel_device_modules-6.1/       MTK device drivers (BSP delivery)
 ├── vendor/mediatek/kernel_modules/  standalone module set (connectivity / gpu / mtkcam / …)
-├── mipp/                            stylus (MIPP) shim module
 ├── tools/
 │   ├── make_vendor_dlkm_trim.sh     vendor_dlkm image builder
 │   ├── make_system_dlkm.sh          system_dlkm image builder
@@ -94,7 +93,7 @@ See [docs/PITFALLS.md](docs/PITFALLS.md) for details and diagnostics.
 
 ## License
 
-The parts this repository owns (`tools/`, `docs/`, `mipp/`, build files) are
+The parts this repository owns (`tools/`, `docs/`, build files) are
 licensed under [GPL-2.0](LICENSE). Vendored third-party components (MTK vendor
 drivers, upstream modules) keep the terms declared in their own directories, a
 mix of GPL / Dual BSD-GPL / Proprietary — GPL-2.0 does not cover those.

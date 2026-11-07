@@ -18,9 +18,6 @@ modules.builtin.modinfo
 # 本地编译的工具（sign_modules.sh 首次运行会生成）
 tools/bin/
 
-# mipp 模块的本地调试产物
-/virtual-device
-
 # 编辑器与系统文件
 *.swp
 .DS_Store

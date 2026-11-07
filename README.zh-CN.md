@@ -53,7 +53,6 @@ common-modules/mediatek/
 ├── build.config.mgk.aarch64         厂商 profile 构建配置
 ├── kernel_device_modules-6.1/       MTK 设备驱动主体（BSP 交付件）
 ├── vendor/mediatek/kernel_modules/  独立模块集合（connectivity / gpu / mtkcam / …）
-├── mipp/                            手写笔（MIPP）shim 模块
 ├── tools/
 │   ├── make_vendor_dlkm_trim.sh     vendor_dlkm 镜像打包
 │   ├── make_system_dlkm.sh          system_dlkm 镜像打包
@@ -87,7 +86,7 @@ common-modules/mediatek/
 
 ## 许可
 
-本仓库自有部分（`tools/`、`docs/`、`mipp/`、构建文件）按根目录
+本仓库自有部分（`tools/`、`docs/`、构建文件）按根目录
 [LICENSE](LICENSE) 授权（GPL-2.0）。聚合进来的第三方组件（MTK 厂商驱动、上游模块）
 按各自目录内的声明为准，为 GPL / Dual BSD-GPL / Proprietary 混合，GPL-2.0 不覆盖它们。
 

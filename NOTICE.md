@@ -22,16 +22,15 @@
   `fpsgo.ko` 是其客户定制层（`depends=mtk_fpsgo`）。
 - **hbt_driver_cus**：与 `hbt_driver` 同样产出 `hbt.ko`，两者互斥。当前接入
   `hbt_driver`，`hbt_driver_cus` 仅保留源码，不参与构建。
-- **mipp**：手写笔（MIPP）shim 模块，本仓库自有实现。
 
 ## 2. 许可
 
 仓库根目录的 `LICENSE` 为 **GPL-2.0**，适用于本仓库自有部分（`tools/`、`docs/`、
-构建文件、`mipp/`）。仓库内聚合的第三方组件按各自声明授权：
+构建文件）。仓库内聚合的第三方组件按各自声明授权：
 
 | 范围 | 许可 |
 |---|---|
-| 本仓库自有部分（`tools/`、`docs/`、`mipp/`、构建文件） | GPL-2.0（见 `LICENSE`） |
+| 本仓库自有部分（`tools/`、`docs/`、构建文件） | GPL-2.0（见 `LICENSE`） |
 | MTK 厂商驱动主体（`kernel_device_modules-6.1/`、`vendor/`） | 以各文件头部声明为准，GPL-2.0 与 Proprietary 混合 |
 | `hbt_driver`、`hbt_driver_cus` | GPL-2.0 |
 | `connectivity/wlan/core/gen4m` | Dual BSD / GPL |
