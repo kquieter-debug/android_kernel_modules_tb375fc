@@ -23,8 +23,9 @@ DIST="${ROOT}/out/kernel_modules"
 CFG_DIR="${PKG_DIR}/tools/vendor_dlkm"
 # 镜像内容：原厂镜像里的全部模块中本树能构建的部分
 LIST="${CFG_DIR}/image_contents.load"
-# 开机自动加载清单：沿用原厂 modules.load
-LOADLIST="${CFG_DIR}/modules.load.stock"
+# 开机自动加载清单：由 tools/solve_deps.py 生成的依赖排序结果
+# （原厂 modules.load 顺序 + 补入的符号提供者，已做拓扑排序）
+LOADLIST="${CFG_DIR}/modules.load.final"
 STAGE_BIN="${ROOT}/bazel-bin/common-modules/mediatek/mgk_64_k61_modules_install/staging"
 TOOLS="${ROOT}/prebuilts/kernel-build-tools/linux-x86/bin"
 OUT="${1:-${DIST}/vendor_dlkm_trim.img}"
