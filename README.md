@@ -64,9 +64,9 @@ common-modules/mediatek/
 
 | 文档 | 内容 |
 |---|---|
-| [docs/zh/BUILD.md](docs/BUILD.md) | 工作区构成、工具链版本、构建目标、配置来源、新增模块流程 |
-| [docs/zh/IMAGES.md](docs/IMAGES.md) | 两个 dlkm 镜像与 boot 的打包细节、加载清单维护、签名 |
-| [docs/zh/PITFALLS.md](docs/PITFALLS.md) | **踩坑清单**：SELinux 标签、扁平布局、加载顺序、依赖污染、签名 |
+| [BUILD.md](docs/zh/BUILD.md) | 工作区构成、工具链版本、构建目标、配置来源、新增模块流程 |
+| [IMAGES.md](docs/zh/IMAGES.md) | 两个 dlkm 镜像与 boot 的打包细节、加载清单维护、签名 |
+| [PITFALLS.md](docs/zh/PITFALLS.md) | **踩坑清单**：SELinux 标签、扁平布局、加载顺序、依赖污染、签名 |
 | [NOTICE.md](NOTICE.md) | 模块来源、上游提交号、许可证说明 |
 
 ## 三条不能违背的约束

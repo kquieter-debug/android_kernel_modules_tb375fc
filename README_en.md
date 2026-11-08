@@ -73,9 +73,9 @@ common-modules/mediatek/
 
 | Document | Contents |
 |---|---|
-| [docs/en/BUILD.md](docs/en/BUILD.md) | Workspace layout, toolchain versions, build targets, config sources, adding a module |
-| [docs/en/IMAGES.md](docs/en/IMAGES.md) | Packaging details for both dlkm images and boot, load-list maintenance, signing |
-| [docs/en/PITFALLS.md](docs/en/PITFALLS.md) | **Pitfalls**: SELinux labels, flat layout, load order, dependency poisoning, signing |
+| [BUILD.md](docs/en/BUILD.md) | Workspace layout, toolchain versions, build targets, config sources, adding a module |
+| [IMAGES.md](docs/en/IMAGES.md) | Packaging details for both dlkm images and boot, load-list maintenance, signing |
+| [PITFALLS.md](docs/en/PITFALLS.md) | **Pitfalls**: SELinux labels, flat layout, load order, dependency poisoning, signing |
 | [NOTICE_en.md](NOTICE_en.md) | Module provenance, upstream commits, licensing |
 
 ## Three hard constraints
