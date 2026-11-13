@@ -7,7 +7,7 @@
 
 | 来源 | 版本 / 提交 | 覆盖范围 |
 |---|---|---|
-| 设备厂商 BSP 交付包 | Linux 6.1.138 | `kernel_device_modules-6.1/` 与 `vendor/` 的原始主体 |
+| [Moto Pad 60 Pro BSP 交付包](https://github.com/MotorolaMobilityLLC/MotoTablets/releases) | Linux 6.1.138 | `kernel_device_modules-6.1/` 与 `vendor/` 的原始主体 |
 | [mt6897-devs/android_vendor_mediatek_kernel_modules](https://github.com/mt6897-devs/android_vendor_mediatek_kernel_modules) | `lineage-23.2` @ `6bceb1b8e3444dd6caf80ad7470c9e57bbdcd1ab` | `connectivity/wlan/core/gen4m`、`hbt_driver`、`hbt_driver_cus` |
 | [MiCode/MTK_kernel_modules](https://github.com/MiCode/MTK_kernel_modules) | `bsp-duchamp-u-oss` @ `e57cdab505850464e0179c8cb16d17b09cf8c524` | `fpsgo_cus` |
 

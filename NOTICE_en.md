@@ -9,7 +9,7 @@ prevails**, and this file only records provenance.
 
 | Source | Version / Commit | Coverage |
 |---|---|---|
-| Device vendor BSP delivery | Linux 6.1.138 | Original main body of `kernel_device_modules-6.1/` and `vendor/` |
+| [Moto Pad 60 Pro BSP delivery](https://github.com/MotorolaMobilityLLC/MotoTablets/releases) | Linux 6.1.138 | Original main body of `kernel_device_modules-6.1/` and `vendor/` |
 | [mt6897-devs/android_vendor_mediatek_kernel_modules](https://github.com/mt6897-devs/android_vendor_mediatek_kernel_modules) | `lineage-23.2` @ `6bceb1b8e3444dd6caf80ad7470c9e57bbdcd1ab` | `connectivity/wlan/core/gen4m`, `hbt_driver`, `hbt_driver_cus` |
 | [MiCode/MTK_kernel_modules](https://github.com/MiCode/MTK_kernel_modules) | `bsp-duchamp-u-oss` @ `e57cdab505850464e0179c8cb16d17b09cf8c524` | `fpsgo_cus` |
 
